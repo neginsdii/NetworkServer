@@ -13,7 +13,7 @@ public class NetworkedServer : MonoBehaviour
     int unreliableChannelID;
     int hostID;
     int socketPort = 5491;
-
+    LinkedList<PlayerAccount> playerAccounts;
     // Start is called before the first frame update
     void Start()
     {
@@ -23,6 +23,7 @@ public class NetworkedServer : MonoBehaviour
         unreliableChannelID = config.AddChannel(QosType.Unreliable);
         HostTopology topology = new HostTopology(config, maxConnections);
         hostID = NetworkTransport.AddHost(topology, socketPort, null);
+        playerAccounts = new LinkedList<PlayerAccount>();
 
     }
 
@@ -68,5 +69,68 @@ public class NetworkedServer : MonoBehaviour
     private void ProcessRecievedMsg(string msg, int id)
     {
         Debug.Log("msg recieved = " + msg + ".  connection id = " + id);
+        string[] csv = msg.Split(',');
+      
+        int signifier = int.Parse(csv[0]);
+
+        if(signifier == ClientToServerSignifier.createAccount)
+		{
+            Debug.Log("Create Account");
+           
+            string n = csv[1];
+            string p = csv[2];
+            bool nameInUse = false;
+			foreach (PlayerAccount pa in playerAccounts)
+			{
+                if (pa.name == n)
+                {
+                    nameInUse = true;
+                    break;
+                }
+			}
+
+            if(nameInUse)
+			{
+                SendMessageToClient(ServerToClientSignifier.AccountCreationFailed + "", id);
+			}
+            else
+			{
+                PlayerAccount newplayerAccount = new PlayerAccount(n, p);
+                playerAccounts.AddLast(newplayerAccount);
+                SendMessageToClient(ServerToClientSignifier.AccountCreationComplete + "", id);
+
+
+            }
+        }
+        else if(signifier == ClientToServerSignifier.Login)
+		{
+            Debug.Log("Login");
+        }
     }
+}
+
+public class PlayerAccount
+{
+    public string name, password;
+    public PlayerAccount (string name, string password)
+	{
+        this.name = name;
+        this.password = password;
+	}
+    
+}
+
+public static class ClientToServerSignifier
+{
+    public const int createAccount = 1;
+    public const int Login = 2;
+}
+
+
+public static class ServerToClientSignifier
+{
+    public const int LoginComplete = 1;
+    public const int LoginFailed = 2;
+    public const int AccountCreationComplete = 3;
+    public const int AccountCreationFailed = 4;
 }
