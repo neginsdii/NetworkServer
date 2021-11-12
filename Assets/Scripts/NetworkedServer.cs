@@ -16,6 +16,8 @@ public class NetworkedServer : MonoBehaviour
     LinkedList<PlayerAccount> playerAccounts;
     const int playerAccountRecord = 1;
     string playerAccountsFilePath;
+    int playerWaitingForMatchWithID = -1;
+    LinkedList<GameRoom> gameRooms;
     // Start is called before the first frame update
     void Start()
     {
@@ -28,6 +30,7 @@ public class NetworkedServer : MonoBehaviour
         playerAccountsFilePath = Application.dataPath + Path.DirectorySeparatorChar + "PlayerAccounts.txt";
         playerAccounts = new LinkedList<PlayerAccount>();
         LoadPlayerAccounts();
+        gameRooms = new LinkedList<GameRoom>();
     }
 
     // Update is called once per frame
@@ -75,13 +78,13 @@ public class NetworkedServer : MonoBehaviour
         string[] csv = msg.Split(',');
       
         int signifier = int.Parse(csv[0]);
-        string n = csv[1];
-        string p = csv[2];
+      
         if (signifier == ClientToServerSignifier.createAccount)
 		{
             Debug.Log("Create Account");
-           
 
+            string n = csv[1];
+            string p = csv[2];
             bool nameInUse = false;
 			foreach (PlayerAccount pa in playerAccounts)
 			{
@@ -110,7 +113,8 @@ public class NetworkedServer : MonoBehaviour
             Debug.Log("Login");
             bool hasNameBeenFound = false;
             bool masHasBeenSentToClient = false;
-
+            string n = csv[1];
+            string p = csv[2];
             foreach (PlayerAccount pa in playerAccounts)
 			{
                 if(pa.name == n)
@@ -118,12 +122,12 @@ public class NetworkedServer : MonoBehaviour
                     hasNameBeenFound = true;
                     if(pa.password == p)
 					{
-                        SendMessageToClient(ServerToClientSignifier.LoginComplete + "login compelet", id);
+                        SendMessageToClient(ServerToClientSignifier.LoginComplete + "", id);
                         masHasBeenSentToClient = true;
                     }
                     else
 					{
-                        SendMessageToClient(ServerToClientSignifier.LoginFailed + "login failed", id);
+                        SendMessageToClient(ServerToClientSignifier.LoginFailed + "", id);
                         masHasBeenSentToClient = true;
 
                     }
@@ -138,6 +142,36 @@ public class NetworkedServer : MonoBehaviour
 
                 }
             }
+        }
+        else if (signifier == ClientToServerSignifier.JoinQueueForGameRoom)
+		{
+            Debug.Log("waiting for other player");
+            if (playerWaitingForMatchWithID == -1)
+            {
+                playerWaitingForMatchWithID = id;
+            }
+            else
+			{
+                GameRoom gr = new GameRoom(playerWaitingForMatchWithID, id);
+                gameRooms.AddLast(gr);
+                SendMessageToClient(ServerToClientSignifier.GameStart + "", gr.playerID1);
+                SendMessageToClient(ServerToClientSignifier.GameStart + "", gr.playerID2);
+
+                playerWaitingForMatchWithID = -1;
+
+            }
+		}
+
+        else if (signifier == ClientToServerSignifier.GameRoomPlay)
+        {
+            GameRoom gr = GetGameRoomWithClientID(id);
+            if(gr!= null)
+			{
+                if(gr.playerID1 == id)
+				{
+                   // send
+				}
+			}
         }
     }
 
@@ -171,6 +205,18 @@ public class NetworkedServer : MonoBehaviour
             sr.Close();
         }
 	}
+
+    private GameRoom GetGameRoomWithClientID(int id)
+	{
+		foreach (GameRoom gr in gameRooms)
+		{
+            if(gr.playerID1 == id || gr.playerID2 == id)
+			{
+                return gr;
+			}
+		}
+        return null;
+	}
 }
 
 public class PlayerAccount
@@ -184,10 +230,21 @@ public class PlayerAccount
     
 }
 
+public class GameRoom
+{
+    public int playerID1, playerID2;
+    public GameRoom(int id1, int id2)
+	{
+        playerID1 = id1;
+        playerID2 = id2;
+	}
+}
 public static class ClientToServerSignifier
 {
     public const int createAccount = 1;
     public const int Login = 2;
+    public const int JoinQueueForGameRoom = 3;
+    public const int GameRoomPlay = 4;
 }
 
 
@@ -197,4 +254,6 @@ public static class ServerToClientSignifier
     public const int LoginFailed = 2;
     public const int AccountCreationComplete = 3;
     public const int AccountCreationFailed = 4;
+    public const int GameStart = 5;
+
 }
