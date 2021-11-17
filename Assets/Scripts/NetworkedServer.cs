@@ -101,9 +101,9 @@ public class NetworkedServer : MonoBehaviour
 			}
             else
 			{
-                PlayerAccount newplayerAccount = new PlayerAccount(n, p);
+                PlayerAccount newplayerAccount = new PlayerAccount(n, p, id);
                 playerAccounts.AddLast(newplayerAccount);
-                SendMessageToClient(ServerToClientSignifier.AccountCreationComplete + "", id);
+                SendMessageToClient(ServerToClientSignifier.AccountCreationComplete + "," + n, id);
 
                 SavePlayerAccounts();
             }
@@ -122,7 +122,8 @@ public class NetworkedServer : MonoBehaviour
                     hasNameBeenFound = true;
                     if(pa.password == p)
 					{
-                        SendMessageToClient(ServerToClientSignifier.LoginComplete + "", id);
+                        SendMessageToClient(ServerToClientSignifier.LoginComplete + ","+ n, id);
+                        pa.id = id;
                         masHasBeenSentToClient = true;
                     }
                     else
@@ -154,11 +155,19 @@ public class NetworkedServer : MonoBehaviour
 			{
                 GameRoom gr = new GameRoom(playerWaitingForMatchWithID, id);
                 gameRooms.AddLast(gr);
+                gr.gameTurn = (Random.Range(0, 2) == 0) ? gr.playerID1 : gr.playerID2;
                 SendMessageToClient(ServerToClientSignifier.GameStart + "", gr.playerID1);
                 SendMessageToClient(ServerToClientSignifier.GameStart + "", gr.playerID2);
-
                 playerWaitingForMatchWithID = -1;
 
+                string txtMsg = "It's "+GetPlayerAccountByID(gr.gameTurn).name+ "'s turn.";
+                
+                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID1);
+                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID2);
+                int token = Random.Range(0, 2);
+                int token2 = (token == 0) ? 1 : 0;
+                SendMessageToClient(ServerToClientSignifier.TurnInGame + "," + token+"," + token2, gr.playerID1);
+                SendMessageToClient(ServerToClientSignifier.TurnInGame +"," + token2 + "," + token, gr.playerID2);
             }
 		}
 
@@ -173,8 +182,72 @@ public class NetworkedServer : MonoBehaviour
 				}
 			}
         }
+        else if(signifier == ClientToServerSignifier.SendTextMessage)
+		{
+            string txtMsg = csv[1] + ": " + csv[2];
+            GameRoom gr = GetGameRoomWithClientID(id);
+            if (gr != null)
+            {
+                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID1);
+                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," +txtMsg, gr.playerID2);
+
+            }
+        }
+        else if (signifier == ClientToServerSignifier.SendChoosenToken)
+        {
+            
+            GameRoom gr = GetGameRoomWithClientID(id);
+            if (gr != null)
+            {
+                int indx = int.Parse(csv[1]);
+               if (gr.gameTurn == id)
+				{
+                    if(gr.gameBoard[indx] == -1)
+					{
+                        gr.gameBoard[indx] = id;
+                        SendMessageToClient(ServerToClientSignifier.sendChoosenTokenByPlayer + "," + id+ "," + indx,  gr.playerID1);
+                        SendMessageToClient(ServerToClientSignifier.sendChoosenTokenByPlayer + "," + id+ "," + indx, gr.playerID2);
+                        int newId = gr.CheckGameBoard();
+                        if (newId != -1)
+                        {
+                            if(newId == -2)
+							{
+                                string txtMsg = "TIED.";
+
+                                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID1);
+                                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID2);
+                                gr.gameTurn = -1;
+                            }
+                           else if (newId == gr.playerID1)
+                            {
+                                
+                                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + "You Won!", gr.playerID1);
+                                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + "Game Over!", gr.playerID2);
+                                gr.gameTurn = -1;
+                            }
+                          else if (newId == gr.playerID2)
+                            {
+                                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + "Game Over!", gr.playerID1);
+                                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + "You Won!", gr.playerID2);
+                                gr.gameTurn = -1;
+                            }
+                        }
+                        else
+                        {
+                            gr.gameTurn = (gr.gameTurn == gr.playerID1) ? gr.playerID2 : gr.playerID1;
+
+                            string txtMsg = "It's " + GetPlayerAccountByID(gr.gameTurn).name + "'s turn.";
+
+                            SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID1);
+                            SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID2);
+                        }
+                    }
+                }
+            }
+        }
     }
 
+    
     private void SavePlayerAccounts()
 	{
         StreamWriter sw = new StreamWriter(playerAccountsFilePath);
@@ -197,7 +270,7 @@ public class NetworkedServer : MonoBehaviour
                 int signifier = int.Parse(csv[0]);
                 if (signifier == playerAccountRecord)
                 {
-                    PlayerAccount pa = new PlayerAccount(csv[1], csv[2]);
+                    PlayerAccount pa = new PlayerAccount(csv[1], csv[2], -1);
                     playerAccounts.AddLast(pa);
                 }
 
@@ -217,15 +290,28 @@ public class NetworkedServer : MonoBehaviour
 		}
         return null;
 	}
+
+    public PlayerAccount GetPlayerAccountByID(int id)
+    {
+        foreach (PlayerAccount pa in playerAccounts)
+        {
+            if(pa.id == id)
+            return pa;
+        }
+       
+        return null;
+    }
 }
 
 public class PlayerAccount
 {
     public string name, password;
-    public PlayerAccount (string name, string password)
+    public int id;
+    public PlayerAccount (string name, string password,int id)
 	{
         this.name = name;
         this.password = password;
+        this.id = id;
 	}
     
 }
@@ -233,11 +319,70 @@ public class PlayerAccount
 public class GameRoom
 {
     public int playerID1, playerID2;
+    public int gameTurn;
+    public List<int> gameBoard = new List<int>();
     public GameRoom(int id1, int id2)
 	{
         playerID1 = id1;
         playerID2 = id2;
+		for (int i = 0; i < 9; i++)
+		{
+            gameBoard.Add(-1);
+		}
 	}
+
+    public int CheckGameBoard()
+	{
+        bool isFull = true;
+        int newId = -1;
+        if (gameBoard[0] == gameBoard[1] && gameBoard[1] == gameBoard[2] && gameBoard[0] != -1)
+        {
+            newId = gameBoard[0];
+
+            return newId;
+        }
+        else if (gameBoard[0] == gameBoard[3] && gameBoard[3] == gameBoard[6] && gameBoard[0] != -1)
+        {
+            newId = gameBoard[0];
+            return newId;
+        }
+        else if (gameBoard[0] == gameBoard[4] && gameBoard[4] == gameBoard[8] && gameBoard[0] != -1)
+        {
+            newId = gameBoard[0];
+            return newId;
+        }
+        else if (gameBoard[2] == gameBoard[4] && gameBoard[4] == gameBoard[6] && gameBoard[2] != -1)
+        {
+            newId = gameBoard[2];
+            return newId;
+        }
+        else if (gameBoard[2] == gameBoard[5] && gameBoard[5] == gameBoard[8] && gameBoard[2] != -1)
+        {
+            newId = gameBoard[2];
+            return newId;
+        }
+        else if (gameBoard[6] == gameBoard[7] && gameBoard[7] == gameBoard[8] && gameBoard[6] != -1)
+        {
+            newId = gameBoard[6];
+            return newId;
+        }
+        else
+        {
+            for (int i = 0; i < 9; i++)
+            {
+                if (gameBoard[i] == -1)
+                {
+                    isFull = false;
+                    return -1;
+                }
+            }
+            if (isFull)
+                return -2;
+        }
+        return newId;
+	}
+
+    
 }
 public static class ClientToServerSignifier
 {
@@ -245,6 +390,9 @@ public static class ClientToServerSignifier
     public const int Login = 2;
     public const int JoinQueueForGameRoom = 3;
     public const int GameRoomPlay = 4;
+    public const int SendTextMessage = 5;
+    public const int SendChoosenToken = 6;
+
 }
 
 
@@ -255,5 +403,8 @@ public static class ServerToClientSignifier
     public const int AccountCreationComplete = 3;
     public const int AccountCreationFailed = 4;
     public const int GameStart = 5;
-
+    public const int TextChatMeassage = 6;
+    public const int TurnInGame = 7;
+    public const int sendChoosenTokenByPlayer = 8;
+    public const int SendwinLoseTie = 9;
 }

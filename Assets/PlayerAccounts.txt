@@ -2,3 +2,4 @@
 1,cc,ll
 1,dd,ww
 1,qd,dfs
+1,neg,neg
