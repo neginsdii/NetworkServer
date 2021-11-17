@@ -162,8 +162,8 @@ public class NetworkedServer : MonoBehaviour
 
                 string txtMsg = "It's "+GetPlayerAccountByID(gr.gameTurn).name+ "'s turn.";
                 
-                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID1);
-                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID2);
+                SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.playerID1);
+                SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.playerID2);
                 int token = Random.Range(0, 2);
                 int token2 = (token == 0) ? 1 : 0;
                 SendMessageToClient(ServerToClientSignifier.TurnInGame + "," + token+"," + token2, gr.playerID1);
@@ -214,21 +214,21 @@ public class NetworkedServer : MonoBehaviour
 							{
                                 string txtMsg = "TIED.";
 
-                                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID1);
-                                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID2);
+                                SendMessageToClient(ServerToClientSignifier.sendGameStatus+ "," + txtMsg, gr.playerID1);
+                                SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.playerID2);
                                 gr.gameTurn = -1;
                             }
                            else if (newId == gr.playerID1)
                             {
                                 
-                                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + "You Won!", gr.playerID1);
-                                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + "Game Over!", gr.playerID2);
+                                SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + "You Won!", gr.playerID1);
+                                SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + "Game Over!", gr.playerID2);
                                 gr.gameTurn = -1;
                             }
                           else if (newId == gr.playerID2)
                             {
-                                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + "Game Over!", gr.playerID1);
-                                SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + "You Won!", gr.playerID2);
+                                SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + "Game Over!", gr.playerID1);
+                                SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + "You Won!", gr.playerID2);
                                 gr.gameTurn = -1;
                             }
                         }
@@ -238,8 +238,8 @@ public class NetworkedServer : MonoBehaviour
 
                             string txtMsg = "It's " + GetPlayerAccountByID(gr.gameTurn).name + "'s turn.";
 
-                            SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID1);
-                            SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID2);
+                            SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.playerID1);
+                            SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.playerID2);
                         }
                     }
                 }
@@ -407,4 +407,6 @@ public static class ServerToClientSignifier
     public const int TurnInGame = 7;
     public const int sendChoosenTokenByPlayer = 8;
     public const int SendwinLoseTie = 9;
+    public const int sendGameStatus = 10;
+
 }
