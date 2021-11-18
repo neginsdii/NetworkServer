@@ -17,7 +17,8 @@ public class NetworkedServer : MonoBehaviour
     const int playerAccountRecord = 1;
     string playerAccountsFilePath;
     int playerWaitingForMatchWithID = -1;
-    LinkedList<GameRoom> gameRooms;
+    //  LinkedList<GameRoom> gameRooms;
+    List<GameRoom> gameRooms;
     // Start is called before the first frame update
     void Start()
     {
@@ -30,7 +31,7 @@ public class NetworkedServer : MonoBehaviour
         playerAccountsFilePath = Application.dataPath + Path.DirectorySeparatorChar + "PlayerAccounts.txt";
         playerAccounts = new LinkedList<PlayerAccount>();
         LoadPlayerAccounts();
-        gameRooms = new LinkedList<GameRoom>();
+        gameRooms = new List<GameRoom>();
     }
 
     // Update is called once per frame
@@ -154,7 +155,7 @@ public class NetworkedServer : MonoBehaviour
             else
 			{
                 GameRoom gr = new GameRoom(playerWaitingForMatchWithID, id);
-                gameRooms.AddLast(gr);
+                gameRooms.Add(gr);
                 gr.gameTurn = (Random.Range(0, 2) == 0) ? gr.playerID1 : gr.playerID2;
                 SendMessageToClient(ServerToClientSignifier.GameStart + "", gr.playerID1);
                 SendMessageToClient(ServerToClientSignifier.GameStart + "", gr.playerID2);
@@ -164,13 +165,36 @@ public class NetworkedServer : MonoBehaviour
                 
                 SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.playerID1);
                 SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.playerID2);
+                
                 int token = Random.Range(0, 2);
+                gr.token = token;
                 int token2 = (token == 0) ? 1 : 0;
-                SendMessageToClient(ServerToClientSignifier.TurnInGame + "," + token+"," + token2, gr.playerID1);
-                SendMessageToClient(ServerToClientSignifier.TurnInGame +"," + token2 + "," + token, gr.playerID2);
-            }
+                gr.token2 = token2;
+                SendMessageToClient(ServerToClientSignifier.TurnInGame + "," + token+"," + token2 + "," + GetPlayerAccountByID(gr.playerID1).name + "," + GetPlayerAccountByID(gr.playerID2).name, gr.playerID1);
+                SendMessageToClient(ServerToClientSignifier.TurnInGame +"," + token2 + "," + token + "," + GetPlayerAccountByID(gr.playerID2).name + "," + GetPlayerAccountByID(gr.playerID1).name, gr.playerID2);
+				
+			}
 		}
+        else if (signifier == ClientToServerSignifier.requestToObserveGame)
+        {
+            if(gameRooms.Count>0)
+			{
+                gameRooms[Random.Range(0, gameRooms.Count)].observersID.Add(id);
+                SendMessageToClient(ServerToClientSignifier.ObserveGameAccepted + "", id);
+                GameRoom gr = GetGameRoomWithClientID(id);
+                SendMessageToClient(ServerToClientSignifier.TurnInGame + "," + gr.token + "," + gr.token2 + "," + GetPlayerAccountByID(gr.playerID1).name + "," + GetPlayerAccountByID(gr.playerID2).name, id);
+                string txtMsg = "It's " + GetPlayerAccountByID(gr.gameTurn).name + "'s turn.";
 
+                SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, id);
+
+
+            }
+            else
+			{
+                SendMessageToClient(ServerToClientSignifier.ObserveGameFailed + "", id);
+
+            }
+        }
         else if (signifier == ClientToServerSignifier.GameRoomPlay)
         {
             GameRoom gr = GetGameRoomWithClientID(id);
@@ -190,7 +214,11 @@ public class NetworkedServer : MonoBehaviour
             {
                 SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.playerID1);
                 SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," +txtMsg, gr.playerID2);
+                for (int i = 0; i < gr.observersID.Count; i++)
+                {
+                    SendMessageToClient(ServerToClientSignifier.TextChatMeassage + "," + txtMsg, gr.observersID[i]);
 
+                }
             }
         }
         else if (signifier == ClientToServerSignifier.SendChoosenToken)
@@ -208,6 +236,15 @@ public class NetworkedServer : MonoBehaviour
                         Debug.Log("Player1 id:  " + gr.playerID1 + "Player2 id:  " + gr.playerID2+"   player played id: "+ id);
                         SendMessageToClient(ServerToClientSignifier.sendChoosenTokenByPlayer + "," + GetPlayerAccountByID(gr.gameTurn).name + "," + indx,  gr.playerID1);
                         SendMessageToClient(ServerToClientSignifier.sendChoosenTokenByPlayer + "," + GetPlayerAccountByID(gr.gameTurn).name + "," + indx, gr.playerID2);
+						for (int i = 0; i < gr.observersID.Count; i++)
+						{
+                            if(gr.playerID1==id)
+                              SendMessageToClient(ServerToClientSignifier.sendChoosenTokensToObservers + "," + indx + "," + gr.token, gr.observersID[i]);
+                            else
+                                SendMessageToClient(ServerToClientSignifier.sendChoosenTokensToObservers + "," + indx + "," + gr.token2, gr.observersID[i]);
+
+
+                        }
                         int newId = gr.CheckGameBoard();
                         if (newId != -1)
                         {
@@ -218,6 +255,11 @@ public class NetworkedServer : MonoBehaviour
                                 SendMessageToClient(ServerToClientSignifier.sendGameStatus+ "," + txtMsg, gr.playerID1);
                                 SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.playerID2);
                                 gr.gameTurn = -1;
+                                for (int i = 0; i < gr.observersID.Count; i++)
+                                {
+                                    SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.observersID[i]);
+
+                                }
                             }
                            else if (newId == gr.playerID1)
                             {
@@ -225,12 +267,22 @@ public class NetworkedServer : MonoBehaviour
                                 SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + "You Won!", gr.playerID1);
                                 SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + "Game Over!", gr.playerID2);
                                 gr.gameTurn = -1;
+                                for (int i = 0; i < gr.observersID.Count; i++)
+                                {
+                                    SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + GetPlayerAccountByID(gr.playerID1).name +" Won!", gr.observersID[i]);
+
+                                }
                             }
                           else if (newId == gr.playerID2)
                             {
                                 SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + "Game Over!", gr.playerID1);
                                 SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + "You Won!", gr.playerID2);
                                 gr.gameTurn = -1;
+                                for (int i = 0; i < gr.observersID.Count; i++)
+                                {
+                                    SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + GetPlayerAccountByID(gr.playerID2).name + " Won!", gr.observersID[i]);
+
+                                }
                             }
                         }
                         else
@@ -240,7 +292,12 @@ public class NetworkedServer : MonoBehaviour
                             string txtMsg = "It's " + GetPlayerAccountByID(gr.gameTurn).name + "'s turn.";
 
                             SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.playerID1);
-                            SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.playerID2);
+                            SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.playerID2); 
+                            for (int i = 0; i < gr.observersID.Count; i++)
+                            {
+                                  SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.observersID[i]);
+                               
+                            }
                         }
                     }
                 }
@@ -248,7 +305,6 @@ public class NetworkedServer : MonoBehaviour
         }
     }
 
-    
     private void SavePlayerAccounts()
 	{
         StreamWriter sw = new StreamWriter(playerAccountsFilePath);
@@ -288,6 +344,14 @@ public class NetworkedServer : MonoBehaviour
 			{
                 return gr;
 			}
+		    for (int i = 0; i < gr.observersID.Count; i++)
+		    {
+                if(gr.observersID[i]==id)
+				{
+                    return gr;
+
+                }
+            }
 		}
         return null;
 	}
@@ -320,8 +384,10 @@ public class PlayerAccount
 public class GameRoom
 {
     public int playerID1, playerID2;
+    public int token, token2;
     public int gameTurn;
     public List<int> gameBoard = new List<int>();
+    public List<int> observersID = new List<int>();
     public GameRoom(int id1, int id2)
 	{
         playerID1 = id1;
@@ -403,6 +469,7 @@ public static class ClientToServerSignifier
     public const int GameRoomPlay = 4;
     public const int SendTextMessage = 5;
     public const int SendChoosenToken = 6;
+    public const int requestToObserveGame = 7;
 
 }
 
@@ -419,5 +486,7 @@ public static class ServerToClientSignifier
     public const int sendChoosenTokenByPlayer = 8;
     public const int SendwinLoseTie = 9;
     public const int sendGameStatus = 10;
-
+    public const int ObserveGameAccepted = 11;
+    public const int ObserveGameFailed = 12;
+    public const int sendChoosenTokensToObservers = 13;
 }
