@@ -205,14 +205,15 @@ public class NetworkedServer : MonoBehaviour
                     if(gr.gameBoard[indx] == -1)
 					{
                         gr.gameBoard[indx] = id;
-                        SendMessageToClient(ServerToClientSignifier.sendChoosenTokenByPlayer + "," + id+ "," + indx,  gr.playerID1);
-                        SendMessageToClient(ServerToClientSignifier.sendChoosenTokenByPlayer + "," + id+ "," + indx, gr.playerID2);
+                        Debug.Log("Player1 id:  " + gr.playerID1 + "Player2 id:  " + gr.playerID2+"   player played id: "+ id);
+                        SendMessageToClient(ServerToClientSignifier.sendChoosenTokenByPlayer + "," + GetPlayerAccountByID(gr.gameTurn).name + "," + indx,  gr.playerID1);
+                        SendMessageToClient(ServerToClientSignifier.sendChoosenTokenByPlayer + "," + GetPlayerAccountByID(gr.gameTurn).name + "," + indx, gr.playerID2);
                         int newId = gr.CheckGameBoard();
                         if (newId != -1)
                         {
                             if(newId == -2)
 							{
-                                string txtMsg = "TIED.";
+                                string txtMsg = "Tied.";
 
                                 SendMessageToClient(ServerToClientSignifier.sendGameStatus+ "," + txtMsg, gr.playerID1);
                                 SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, gr.playerID2);
@@ -364,6 +365,16 @@ public class GameRoom
         else if (gameBoard[6] == gameBoard[7] && gameBoard[7] == gameBoard[8] && gameBoard[6] != -1)
         {
             newId = gameBoard[6];
+            return newId;
+        }
+        else if (gameBoard[3] == gameBoard[4] && gameBoard[4] == gameBoard[5] && gameBoard[3] != -1)
+        {
+            newId = gameBoard[3];
+            return newId;
+        }
+        else if (gameBoard[1] == gameBoard[7] && gameBoard[7] == gameBoard[4] && gameBoard[1] != -1)
+        {
+            newId = gameBoard[1];
             return newId;
         }
         else

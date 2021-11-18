@@ -3,3 +3,5 @@
 1,dd,ww
 1,qd,dfs
 1,neg,neg
+1,Mina,123
+1,Saba,12
