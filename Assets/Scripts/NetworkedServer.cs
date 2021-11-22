@@ -186,6 +186,20 @@ public class NetworkedServer : MonoBehaviour
                 string txtMsg = "It's " + GetPlayerAccountByID(gr.gameTurn).name + "'s turn.";
 
                 SendMessageToClient(ServerToClientSignifier.sendGameStatus + "," + txtMsg, id);
+                if(gr.isBoardfilled())
+				{
+					for (int i = 0; i < 9; i++)
+					{
+                        if (gr.gameBoard[i] != -1)
+                        {
+                            if (gr.playerID1 == gr.gameBoard[i])
+                                SendMessageToClient(ServerToClientSignifier.sendChoosenTokensToObservers + "," + i + "," + gr.token, id);
+                            else
+                                SendMessageToClient(ServerToClientSignifier.sendChoosenTokensToObservers + "," + i + "," + gr.token2, id);
+                        }
+                    }
+
+                }
 
 
             }
@@ -398,6 +412,19 @@ public class GameRoom
 		}
 	}
 
+    public bool isBoardfilled()
+	{
+        bool filled = false;
+        for (int i = 0; i< 9; i++)
+		{
+            if(gameBoard[i]!=-1)
+			{
+                filled = true;
+                break;
+			}
+		}
+        return filled;
+	}
     public int CheckGameBoard()
 	{
         bool isFull = true;
